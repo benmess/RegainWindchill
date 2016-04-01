@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!DOCTYPE project [
+    <!ENTITY ws_env SYSTEM "C:\ptc\Windchill_10.2\Windchill\bin\adminTools\WebServices\common\common-env.jws_xml">
+    <!ENTITY ws_server SYSTEM "C:\ptc\Windchill_10.2\Windchill\bin\adminTools\WebServices\common\common-server.jws_xml">
+]>
+<project name="DocCreation" default="all">
+  <property name="webservice.class" value="ext.regain.document.RegainWbs" />
+  <property name="security.policy" value="userNameAuthSymmetricKeys" />
+
+  &ws_env;
+  &ws_server;
+</project>

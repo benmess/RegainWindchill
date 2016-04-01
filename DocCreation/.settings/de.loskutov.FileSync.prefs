@@ -1,0 +1,10 @@
+WARNING=DO NOT MODIFY THIS FILE IF YOU DON'T UNDERSTAND
+defaultDestination=C\:/ptc/Windchill_10.2/Windchill/codebase
+defaultVariables=
+eclipse.preferences.version=1
+includeTeamPrivateFiles=false
+map|0=bin|,|,|,|,
+map|1=codebase|,|,|,|,
+map|2=src|C\:/ptc/Windchill_10.2/Windchill/src|,|/|,
+map|3=src/ext/regain/document|C\:/ptc/Windchill_10.2/Windchill/prog_examples/jws/MyJavaProject/src/org/myorg|RegainBackend.java;RegainRemoteHelper.java|,|,
+useCurrentDateForDestinationFiles=false

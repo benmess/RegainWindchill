@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry exported="true" kind="lib" path="C:/ptc/Windchill_10.2/Windchill/codebase"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/WC102"/>
+	<classpathentry kind="lib" path="C:/ptc/Windchill_10.2/Windchill/codebase/wt/security/security.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
