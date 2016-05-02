@@ -35,37 +35,76 @@ public class RegainBackend
 {
 		
 	
-	public static Boolean createWTDoc(String sDocNo, String sDocName, String sProductName, String sDocType) throws Exception
+	public static Boolean createWTDoc(String sDocNo, String sDocName, String sProductName, String sDocType, String sFolderName, 
+									  String[] sAttributeName, String[] sAttributeValue, String sCheckInComments) throws Exception
 	{
 /*		RemoteMethodServer myServer = null;
 		myServer = RemoteMethodServer.getDefault();
 	    myServer.setUserName("wcadmin");
 	    myServer.setPassword("wcadmin");
 */
-  		System.out.println("Set doc number");
 	    RegainRemoteHelper help = new RegainRemoteHelper();
-	    System.out.println("about to execute with doc " + sDocNo + " and name " + sDocName);
-	    help.createdoc(sDocNo, sDocName, sProductName, sDocType);
-	    System.out.println("success");
-	    
-//	    WTDocument doc = (WTDocument)myServer.invoke("createDoc", RegainRemoteHelper.class.getName(), null, aClass,aObj);
-//	    System.out.println("completed document with doc number = " + doc.getNumber() + ", name = " + doc.getName());
-	    
+	    WTDocument doc = help.createdoc(sDocNo, sDocName, sProductName, sDocType, sFolderName, sAttributeName, sAttributeValue, sCheckInComments);	    
 	    return true;
 
 	}
 	
-	public static Boolean attachDoc(String sDocNo, String sAttachmentPathAndFile, Boolean bSecondary) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
+	public static Boolean attachDoc(String sUser, String sDocNo, String sAttachDesc, String sAttachmentPathAndFile, Boolean bSecondary, String sCheckInComments) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
 	{
-  		System.out.println("Set doc number");
 	    RegainRemoteHelper help = new RegainRemoteHelper();
-	    System.out.println("about to execute attach doc " + sDocNo + " and path and name " + sAttachmentPathAndFile);
-	    help.attachToDoc(sDocNo, sAttachmentPathAndFile, bSecondary);
-	    System.out.println("success");
-		
+	    help.attachToDoc(sUser, sDocNo, sAttachDesc, sAttachmentPathAndFile, bSecondary, sCheckInComments);		
+		return true;
+	}
+	
+	public static Boolean setDocStringAttributes(String sDocNo, String sDocName, String[]sAttributeName, String[] sAttributeValue, String sCheckInComments) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
+	{
+	    RegainRemoteHelper help = new RegainRemoteHelper();
+	    help.setDocumentAttributeStrings(sDocNo, sDocName, sAttributeName, sAttributeValue, sCheckInComments);		
+		return true;
+	}
+	
+	public static Boolean deleteAttachment(String sUser, String sDocNo, String sFileName, Boolean bSecondary) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
+	{
+	    RegainRemoteHelper help = new RegainRemoteHelper();
+	    help.deleteAttachment(sUser, sDocNo, sFileName, bSecondary);		
 		return true;
 	}
 
+	public static Boolean setDocToPartRef(String sUser, String sDocNo, String sPartNo, String sCheckingComments) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
+	{
+	    RegainRemoteHelper help = new RegainRemoteHelper();
+	    help.setReferencedByLink(sUser, sDocNo, sPartNo, sCheckingComments);		
+		return true;
+	}
+	
+	public static Boolean setDocToPartRefs(String sUser, String sDocNo, String[] sPartNos, String sCheckingComments) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
+	{
+	    RegainRemoteHelper help = new RegainRemoteHelper();
+	    int i;
+	    
+	    for(i=0;i<sPartNos.length;i++)
+	    {
+	    	help.setReferencedByLink(sUser, sDocNo, sPartNos[i], sCheckingComments);
+	    }
+		return true;
+	}
 
+	public static Boolean deleteDocToPartRef(String sUser, String sDocNo, String sPartNo, String sCheckingComments) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
+	{
+	    RegainRemoteHelper help = new RegainRemoteHelper();
+	    help.deleteReferencedByLink(sUser, sDocNo, sPartNo, sCheckingComments);		
+		return true;
+	}
 
+	public static Boolean deleteDocToPartRefs(String sUser, String sDocNo, String[] sPartNos, String sCheckingComments) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
+	{
+	    RegainRemoteHelper help = new RegainRemoteHelper();
+	    int i;
+	    
+	    for(i=0;i<sPartNos.length;i++)
+	    {
+	    	help.deleteReferencedByLink(sUser, sDocNo, sPartNos[i], sCheckingComments);
+	    }
+		return true;
+	}
 }

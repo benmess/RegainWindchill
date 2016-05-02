@@ -6,5 +6,5 @@ includeTeamPrivateFiles=false
 map|0=bin|,|,|,|,
 map|1=codebase|,|,|,|,
 map|2=src|C\:/ptc/Windchill_10.2/Windchill/src|,|/|,
-map|3=src/ext/regain/document|C\:/ptc/Windchill_10.2/Windchill/prog_examples/jws/MyJavaProject/src/org/myorg|RegainBackend.java;RegainRemoteHelper.java|,|,
+map|3=src/ext/regain/document|C\:/ptc/Windchill_10.2/Windchill/prog_examples/jws/MyJavaProject/src/org/myorg|BCrypt.java;Backend.java;RegainBackend.java;RegainRemoteHelper.java|,|,
 useCurrentDateForDestinationFiles=false
