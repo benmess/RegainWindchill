@@ -1058,7 +1058,7 @@ public class RegainRemoteHelper implements Serializable, RemoteAccess
 				    bAtLeastOneDelete = true;
 				    link = getPartPartLink(sParentPart, sChildPart);
 				}
-				
+								
 				if(bAtLeastOneDelete)
 				{
 					partParent2 = (WTPart)WorkInProgressHelper.service.checkin(partParent2,sCheckInComments);

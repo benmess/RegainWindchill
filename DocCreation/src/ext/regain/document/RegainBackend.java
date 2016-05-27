@@ -114,7 +114,7 @@ public class RegainBackend
 	    	help.deleteReferencedByLink(sUser, sDocNo, sPartNos[i], sCheckingComments);
 	    }
 		return true;
-	}
+	}	
 
 	public static Boolean setPartAttributes(String sPartNumber, String sPartName, String[] sAttributeName, String[] sAttributeValue, String[] sAttributeType, String sCheckInComments) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
 	{
