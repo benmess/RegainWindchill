@@ -12,6 +12,9 @@ import java.rmi.RemoteException;
 import java.text.*;
 import java.util.*;
 
+import org.apache.commons.lang.time.DateUtils;
+
+import com.ibm.icu.util.GregorianCalendar;
 import com.ptc.core.logging.Log;
 import com.ptc.core.lwc.server.LWCNormalizedObject;
 import com.ptc.core.lwc.server.PersistableAdapter;
@@ -60,8 +63,12 @@ import wt.inf.container.WTContainerRef;
 import wt.method.RemoteAccess;
 import wt.method.RemoteMethodServer;
 import wt.org.WTPrincipal;
+import wt.part.Quantity;
 import wt.part.WTPart;
+import wt.part.WTPartMaster;
+import wt.part.WTPartMasterIdentity;
 import wt.part.WTPartReferenceLink;
+import wt.part.WTPartUsageLink;
 import wt.pdmlink.PDMLinkProduct;
 import wt.pds.StatementSpec;
 import wt.query.QuerySpec;
@@ -689,6 +696,26 @@ public class RegainRemoteHelper implements Serializable, RemoteAccess
 	    return null;
 	 }
 
+	 public WTPartUsageLink getPartPartLink(String sParentPart, String sChildPart) throws WTException
+	 {
+		WTPart partParent = getPartByNumber(sParentPart);
+		QueryResult queryReferences = StructHelper.service.navigateUses(partParent, WTPartUsageLink.class, false);
+		while (queryReferences.hasMoreElements()) 
+		{
+			WTPartUsageLink link = (WTPartUsageLink) queryReferences.nextElement();
+			if(link.getRoleBObject() instanceof WTPartMaster)
+			{
+				WTPartMaster partMaster2 = (WTPartMaster)link.getRoleBObject();
+				if(sChildPart.equals(partMaster2.getNumber()))
+				{
+					return link;
+				}
+			}
+		}
+		
+	    return null;
+	 }
+
 	 public Boolean deleteReferencedByLink(String sUser, String sDocNumber, String sPartNumber, String sCheckInComments) throws WTException, RemoteException, InvocationTargetException
 	 {
 		int i;
@@ -757,6 +784,326 @@ public class RegainRemoteHelper implements Serializable, RemoteAccess
 	    }	        
 	 }
 
+	 @SuppressWarnings("deprecation")
+	public WTPart createpart(String sNumber, String sName, String sProductName, String sPartType, String sFolderName, 
+								String[] sAttributeName, String[] sAttributeValue, String sCheckInComments) throws Exception 
+	{
+		int i;
+        if (!RemoteMethodServer.ServerFlag)
+        {
+
+            RemoteMethodServer ms = RemoteMethodServer.getDefault();
+            Class[] argTypes = {String.class, String.class, String.class, String.class, String.class, String[].class, String[].class, String.class};
+            Object[] argValues = {sNumber, sName, sProductName, sPartType, sFolderName, sAttributeName, sAttributeValue, sCheckInComments};
+            ms.invoke("createpart", null, this, argTypes, argValues);
+            return null;
+        }
+
+        SessionContext.newContext();
+        String sUsername = getBackendUser();
+        SessionHelper.manager.setPrincipal(sUsername);
+        
+        Transaction trans = new Transaction();
+        
+        try
+        {
+        	trans.start();
+		    WTPart part = WTPart.newWTPart();
+		    part.setName(sName);
+		    part.setNumber(sNumber);
+	
+		    WTContainerRef prodref = GetProductRef(sProductName);
+		    part.setContainerReference(prodref);
+		    Folder folder = GetFolder2(sFolderName, sProductName);
+
+		    if (folder != null) 
+		    {
+	            FolderHelper.assignLocation(part, folder);
+	        }
+	
+		    TypeDefinitionReference typeRef = getTypeDef(sPartType);
+	
+		    part.setTypeDefinitionReference(typeRef);
+			for(i=0;i<sAttributeName.length;i++)
+			{
+				PersistableAdapter obj = new PersistableAdapter(part,null,Locale.US,new CreateOperationIdentifier());
+			    obj.load(sAttributeName[i]);
+				obj.set(sAttributeName[i], sAttributeValue[i]);
+				obj.apply();
+			}
+			part = (WTPart)PersistenceHelper.manager.store(part);
+		    PersistenceHelper.manager.refresh(part);
+	    	trans.commit();
+	        trans = null;
+	        if(sCheckInComments.length() > 0)
+	        {
+				VersionControlHelper.setNote(part, sCheckInComments);
+				PersistenceServerHelper.update(part);
+	        }
+		    return part;
+	    }
+	    catch(Throwable t) 
+	    {
+	        throw new ExceptionInInitializerError(t);
+	    } 
+	    finally 
+	    {
+	        if(trans != null) 
+	        {
+	        	trans.rollback();
+	        }
+	    }
+	}
+	 
+	 // sAttributeType can have values
+	 //		Boolean - bool or boolean
+	 //		Date & Time - date or datetime
+	 //		Integer Number - int or integer
+	 //		Real Number - real or doub or double or float
+	 //		String - string or the default
+	 public Boolean setPartAttributes(String sPartNumber, String sPartName, String[] sAttributeName, String[] sAttributeValue, 
+			 						  String[] sAttributeType, String sCheckInComments) throws WTException, RemoteException, InvocationTargetException
+	 {
+		int i;
+        if (!RemoteMethodServer.ServerFlag)
+        {
+            RemoteMethodServer ms = RemoteMethodServer.getDefault();
+            Class[] argTypes = {String.class, String.class, String[].class, String[].class, String[].class, String.class};
+            Object[] argValues = {sPartNumber, sPartName, sAttributeName, sAttributeValue, sAttributeType, sCheckInComments};
+            ms.invoke("setPartAttributes", null, this, argTypes, argValues);
+            return true;
+        }
+
+        SessionContext.newContext();
+        String sUsername = getBackendUser();
+        SessionHelper.manager.setPrincipal(sUsername);
+
+        Transaction trans = new Transaction();
+	        
+        try
+        {
+	        trans.start();
+			WTPart part = getPartByNumber(sPartNumber);
+			if(part != null)
+			{
+				WTPartMaster master = (WTPartMaster)part.getMaster();
+				WTPartMasterIdentity masterId = (WTPartMasterIdentity)master.getIdentificationObject();
+				masterId.setName(sPartName);
+				IdentityHelper.service.changeIdentity((Identified) master, masterId);
+
+				master = (WTPartMaster) PersistenceHelper.manager.refresh(master);
+				Folder checkoutFolder = wt.vc.wip.WorkInProgressHelper.service.getCheckoutFolder();
+				CheckoutLink col = null;
+				col = WorkInProgressHelper.service.checkout((WTPart)part,checkoutFolder,"");
+				WTPart part2 = (WTPart)col.getWorkingCopy();
+				for(i=0;i<sAttributeName.length;i++)
+				{
+					PersistableAdapter obj = new PersistableAdapter(part2,null,Locale.US,new UpdateOperationIdentifier());
+				    obj.load(sAttributeName[i]);
+				    Object objAttributeValue = null;
+				    switch(sAttributeType[i])
+				    {
+					    case "string":
+					    default:
+					    	if(sAttributeValue[i].equals("null"))
+					    		objAttributeValue = null;
+					    	else
+					    		objAttributeValue = sAttributeValue[i];
+					    	break;
+					    case "date":
+					    case "datetime":
+					    	objAttributeValue = GetDateFromString(sAttributeValue[i], "dd/MM/yyyy hh:mm:ss a");
+					    	break;
+					    case "bool":
+					    case "boolean":
+					    	objAttributeValue = Boolean.valueOf(sAttributeValue[i]);
+					    	break;
+					    case "int":
+					    case "integer":
+					    	objAttributeValue = Integer.valueOf(sAttributeValue[i]);
+					    	break;
+					    case "doub":
+					    case "double":
+					    case "real":
+					    case "float":
+					    	objAttributeValue = Double.valueOf(sAttributeValue[i]);
+					    	break;
+					    	
+				    }
+					obj.set(sAttributeName[i], objAttributeValue);
+					obj.apply();
+				}
+				PersistenceHelper.manager.modify(part2);				
+				part2 = (WTPart)WorkInProgressHelper.service.checkin(part2,sCheckInComments);
+			}
+		 
+			trans.commit();
+			trans = null;
+			return true;
+	    }
+	    catch(Throwable t) 
+	    {
+	        throw new ExceptionInInitializerError(t);
+	    } 
+	    finally 
+	    {
+	        if(trans != null) 
+	        {
+	        	trans.rollback();
+	        }
+	    }	        
+	 }
+	 
+	 public Boolean setPartPartLink(String sUser, String sParentPartNo, String sChildPartNumber, double dQty, String sCheckInComments) throws WTException, RemoteException, InvocationTargetException
+	 {
+        if (!RemoteMethodServer.ServerFlag)
+        {
+            RemoteMethodServer ms = RemoteMethodServer.getDefault();
+            Class[] argTypes = {String.class, String.class, String.class, double.class, String.class};
+            Object[] argValues = {sUser, sParentPartNo, sChildPartNumber, dQty, sCheckInComments};
+            ms.invoke("setPartPartLink", null, this, argTypes, argValues);
+            return true;
+        }
+
+        SessionContext.newContext();
+        String sUsername = getBackendUser();
+        SessionHelper.manager.setPrincipal(sUsername);
+
+        Transaction trans = new Transaction();
+	        
+        try
+        {
+	        trans.start();
+	        WTPart partChild = getPartByNumber(sChildPartNumber);
+			if(partChild != null)
+			{
+				WTPartMaster masterChild = (WTPartMaster)partChild.getMaster();
+				WTPart partParent = getPartByNumber(sParentPartNo);
+				WTPartUsageLink link = new WTPartUsageLink();
+				Quantity partQty = new Quantity();
+				partQty.setAmount(dQty);
+				link.setQuantity(partQty);
+				Folder checkoutFolder = wt.vc.wip.WorkInProgressHelper.service.getCheckoutFolder();
+				CheckoutLink col = null;
+				col = WorkInProgressHelper.service.checkout((WTPart)partParent,checkoutFolder,"");
+				WTPart partParent2 = (WTPart)col.getWorkingCopy();
+				PersistableAdapter obj = new PersistableAdapter(partParent2,null,Locale.US,new UpdateOperationIdentifier());
+			    obj.load("Originator");
+				obj.set("Originator", sUser);
+				obj.apply();
+				PersistenceHelper.manager.modify(partParent2);				
+
+				link.setRoleAObject(partParent2);
+				link.setRoleBObject(masterChild);
+				link = (WTPartUsageLink)PersistenceHelper.manager.store(link);
+				PersistenceHelper.manager.refresh(link);
+				partParent2 = (WTPart)WorkInProgressHelper.service.checkin(partParent2,sCheckInComments);
+			}
+		 
+			trans.commit();
+			trans = null;
+			return true;
+	    }
+	    catch(Throwable t) 
+	    {
+	        throw new ExceptionInInitializerError(t);
+	    } 
+	    finally 
+	    {
+	        if(trans != null) 
+	        {
+	        	trans.rollback();
+	        }
+	    }	        
+	 }
+
+	 public Boolean deletePartPartLink(String sUser, String sParentPart, String sChildPart, String sCheckInComments) throws WTException, RemoteException, InvocationTargetException
+	 {
+		int i;
+		Boolean bAtLeastOneDelete = false;
+        if (!RemoteMethodServer.ServerFlag)
+        {
+            RemoteMethodServer ms = RemoteMethodServer.getDefault();
+            Class[] argTypes = {String.class, String.class,String.class, String.class};
+            Object[] argValues = {sUser, sParentPart, sChildPart, sCheckInComments};
+            ms.invoke("deletePartPartLink", null, this, argTypes, argValues);
+            return true;
+        }
+
+        SessionContext.newContext();
+        String sUsername = getBackendUser();
+        SessionHelper.manager.setPrincipal(sUsername);
+
+        Transaction trans = new Transaction();
+	        
+        try
+        {
+	        	trans.start();
+				WTPart partParent = getPartByNumber(sParentPart);
+
+				Folder checkoutFolder = wt.vc.wip.WorkInProgressHelper.service.getCheckoutFolder();
+				CheckoutLink col = null;
+				col = WorkInProgressHelper.service.checkout((WTPart)partParent,checkoutFolder,"");
+				WTPart partParent2 = (WTPart)col.getWorkingCopy();
+				PersistableAdapter obj = new PersistableAdapter(partParent2,null,Locale.US,new UpdateOperationIdentifier());
+			    obj.load("Originator");
+				obj.set("Originator", sUser);
+				obj.apply();
+				PersistenceHelper.manager.modify(partParent2);				
+
+		        WTPartUsageLink link = getPartPartLink(sParentPart, sChildPart);
+				while(link != null)
+				{
+					PersistenceHelper.manager.delete(link);
+				    bAtLeastOneDelete = true;
+				    link = getPartPartLink(sParentPart, sChildPart);
+				}
+				
+				if(bAtLeastOneDelete)
+				{
+					partParent2 = (WTPart)WorkInProgressHelper.service.checkin(partParent2,sCheckInComments);
+				}
+				else
+				{
+					partParent2 = (WTPart)WorkInProgressHelper.service.undoCheckout(partParent2);
+				}
+		 
+			trans.commit();
+			trans = null;
+			return true;
+	    }
+	    catch(Throwable t) 
+	    {
+	        throw new ExceptionInInitializerError(t);
+	    } 
+	    finally 
+	    {
+	        if(trans != null) 
+	        {
+	        	trans.rollback();
+	        }
+	    }	        
+	 }
+
+	 public static java.sql.Timestamp GetDateFromString(String sDateAsString, String sFormat)
+	 {
+	 	DateFormat df = new SimpleDateFormat(sFormat); 
+	 	TimeZone tz = TimeZone.getTimeZone("UTC");
+	 	df.setTimeZone(tz);
+	 	Date startDate;
+	     try 
+	     {
+	        startDate = df.parse(sDateAsString);	        
+	    	java.sql.Timestamp dtsql = new java.sql.Timestamp(startDate.getTime());
+	        return dtsql;
+	     } 
+	     catch (ParseException e) 
+	     {
+	        e.printStackTrace();
+	        return null;
+	     }		 
+	 }
+	 
 	 private static void logToFile(String sMsg)
 	 {
 		File logFile = new File("C:/WebRoot/logs/WCDebug.log");

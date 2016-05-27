@@ -8,9 +8,15 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.Locale;
+import java.util.TimeZone;
+
+import org.apache.commons.lang.time.DateUtils;
 
 import com.ptc.core.lwc.server.LWCNormalizedObject;
 import com.ptc.core.lwc.server.PersistableAdapter;
@@ -47,17 +53,48 @@ public static void main(String[] args)
 	    RegainRemoteHelper help = new RegainRemoteHelper();
 //	    WTContainerRef ref = help.GetProductRef(sProductName);
 	    System.out.println("about to execute folder info with name " + sFolderName); //String.valueOf(ref.getContainer()()
-	    String[] sAttName = new String[3];
-	    String[] sAttValue = new String[3];
+	    String[] sAttName = new String[6];
+	    String[] sAttValue = new String[6];
+	    String[] sAttType = new String[6];
 	    
-	    sAttName[0] = "LongDescription";
+/*	    sAttName[0] = "LongDescription";
 	    sAttName[1] = "Originator";
 	    sAttName[2] = "OriginatorDocId";
+	    sAttName[3] = "RequestDate";
 
 	    sAttValue[0] = "A new long description by ben changed again";
 	    sAttValue[1] = "benmess";
 	    sAttValue[2] = "xxxxyyyy";
+	    sAttValue[3] = "12/05/2016 3:18:5 PM";
+	    
+	    sAttType[0] = "string";
+	    sAttType[1] = "string";
+	    sAttType[2] = "string";
+	    sAttType[3] = "datetime";
+*/	    
+	    sAttName[0] = "Originator";
+	    sAttName[1] = "ActionCategory";
+	    sAttName[2] = "ARCause";
+	    sAttName[3] = "LongDescription";
+	    sAttName[4] = "Comments";
+	    sAttName[5] = "RequestDate";
 
+	    sAttValue[0] = "benmess";
+	    sAttValue[1] = "null";
+	    sAttValue[2] = "null";
+	    sAttValue[3] = "A long desc";
+	    sAttValue[4] = "";
+	    sAttValue[5] = "05/05/2016 12:44:22 PM";
+
+	    		sAttType[0] = "string";
+	    		sAttType[1] = "string";
+	    		sAttType[2] = "string";
+	    		sAttType[3] = "string";
+	    		sAttType[4] = "string";
+	    		sAttType[5] = "datetime";
+
+	    
+//	    Object obj = GetDateFromString(sAttValue[3], "dd/MM/yyyy hh:mm:ss a");
 //	    Folder  folder = (Folder) FolderHelper.service.getFolder(sFolderName.toString(), WTContainerRef.newWTContainerRef(ref)); //, 
 //	    Folder folder = help.GetFolder2(sFolderName, sProductName);
 	    String[] sPartRefs = new String[2];
@@ -65,10 +102,12 @@ public static void main(String[] args)
 	    sPartRefs[1] = "P120P130";
 	    //getPartDocRefLink("P120P030","120TD101");
 	    //be.deleteDocToPartRef("benthebest","120TD101", "P120A100","deleted link to doc 120TD101");
-
+//	    be.setPartPartLink("benmess", "P215B014", "CA00002", 2, "Testing part to part link");
+	    be.deletePartPartLink("benmess", "P215B014", "CA00002", "Testing part to part link delete");
+//	    Boolean bPartUpdate = be.setPartAttributes("CA00002", "A new request changed", sAttName, sAttValue, sAttType, "Some checkin comments");
 	    //Boolean bResult = be.deleteDocToPartRefs("120TD101", sPartRefs, "Linking to document 120TD101");
 //	    System.out.println("success with folder " + folder.getLocation() + " description " + folder.getDescription() + " name = " + folder.getName());
-		be.deleteAttachment("benmess33myage", "120TD101", "LogMeIn.msi", true);
+		//be.deleteAttachment("benmess33myage", "120TD101", "LogMeIn.msi", true);
 //		be.attachDoc("benmess33myage","120TD101", "The attach desc", "C:/WebRoot/Regain/Uploads/LogMeIn.msi", true, "Check to see if originator comes across");
 //		Boolean doc = be.createWTDoc("120TD116", "Name with non wcadmin user", sProductName, "local.rs.vsrs05.Regain.TD", sFolderName, sAttName, sAttValue, sCheckinComments);//GetDocumentByNumber("120TD266");
 	    System.out.println("success for doc creation with doc");
@@ -160,6 +199,36 @@ public static Boolean setDocumentAttributeStringLocal(String sDocNumber, String 
 	 
 }
 
+public static java.sql.Timestamp GetDateFromString(String sDateAsString, String sFormat)
+{
+	DateFormat df = new SimpleDateFormat(sFormat); 
+	TimeZone tz = TimeZone.getTimeZone("UTC");
+	df.setTimeZone(tz);
+	Date startDate;
+    try 
+    {
+       startDate = df.parse(sDateAsString);
+       Calendar cal = Calendar.getInstance();
+       TimeZone tz2 = cal.getTimeZone();
+       Calendar cal2 = Calendar.getInstance(tz2);
+       int iOffset = tz2.getOffset(cal2.getTime().getTime());
+//       iOffset = TimeZone.getTimeZone("AEST").getOffset(Calendar.getInstance().getTimeInMillis());
+       int iOffset2 = TimeZone.getTimeZone("UTC").getOffset(Calendar.getInstance().getTimeInMillis());
+  	    System.out.println("offset = " + Integer.toString(iOffset) );
+  	    System.out.println("offset2 = " + Integer.toString(iOffset2) );
+  	    System.out.println("start date 1 set " + startDate.toString() );
+       Date startDate2 = DateUtils.addMilliseconds(startDate, iOffset2 * -1);
+  	    System.out.println("start date 2 set " + startDate2.toString() );
+   	   java.sql.Timestamp dtsql = new java.sql.Timestamp(startDate2.getTime());
+  	    System.out.println("date set " + dtsql.toString() );
+       return dtsql;
+    } 
+    catch (ParseException e) 
+    {
+       e.printStackTrace();
+       return null;
+    }		 
+}
 
 private static void logToFile(String sMsg)
 {

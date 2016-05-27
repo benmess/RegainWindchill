@@ -6,6 +6,14 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.rmi.RemoteException;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.TimeZone;
+
+import org.apache.commons.lang.time.DateUtils;
 
 import wt.content.ApplicationData;
 import wt.content.ContentHelper;
@@ -107,4 +115,26 @@ public class RegainBackend
 	    }
 		return true;
 	}
+
+	public static Boolean setPartAttributes(String sPartNumber, String sPartName, String[] sAttributeName, String[] sAttributeValue, String[] sAttributeType, String sCheckInComments) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
+	{
+	    RegainRemoteHelper help = new RegainRemoteHelper();
+	    help.setPartAttributes(sPartNumber, sPartName, sAttributeName, sAttributeValue, sAttributeType, sCheckInComments);		
+		return true;
+	}
+	
+	public static Boolean setPartPartLink(String sUser, String sParentPartNo, String sChildPartNumber, double dQty, String sCheckInComments) throws WTException, RemoteException, InvocationTargetException
+	{
+	    RegainRemoteHelper help = new RegainRemoteHelper();
+	    help.setPartPartLink(sUser, sParentPartNo, sChildPartNumber, dQty, sCheckInComments);		
+		return true;
+	}
+	
+	public static Boolean deletePartPartLink(String sUser, String sParentPart, String sChildPart, String sCheckingComments) throws FileNotFoundException, InvocationTargetException, WTException, PropertyVetoException, IOException
+	{
+	    RegainRemoteHelper help = new RegainRemoteHelper();
+	    help.deletePartPartLink(sUser, sParentPart, sChildPart, sCheckingComments);		
+		return true;
+	}
+
 }
