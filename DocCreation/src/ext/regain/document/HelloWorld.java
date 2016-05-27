@@ -104,6 +104,7 @@ public static void main(String[] args)
 	    //be.deleteDocToPartRef("benthebest","120TD101", "P120A100","deleted link to doc 120TD101");
 //	    be.setPartPartLink("benmess", "P215B014", "CA00002", 2, "Testing part to part link");
 	    be.deletePartPartLink("benmess", "P215B014", "CA00002", "Testing part to part link delete"); //This will delete all iterations of the part to part
+	    
 //	    Boolean bPartUpdate = be.setPartAttributes("CA00002", "A new request changed", sAttName, sAttValue, sAttType, "Some checkin comments");
 	    //Boolean bResult = be.deleteDocToPartRefs("120TD101", sPartRefs, "Linking to document 120TD101");
 //	    System.out.println("success with folder " + folder.getLocation() + " description " + folder.getDescription() + " name = " + folder.getName());
