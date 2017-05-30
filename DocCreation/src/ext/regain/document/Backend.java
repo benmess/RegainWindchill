@@ -1,17 +1,20 @@
 package ext.regain.document;
 
 import java.text.DecimalFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
+import java.security.SecureRandom;
 import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.sql.Date;
 import java.sql.Types;
 import java.io.BufferedReader;
 import java.io.File;
@@ -37,7 +40,16 @@ import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 
 
 
+
+
+
+
+
+
+
+
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang.time.DateUtils;
 //Import for the excel stuff
 import org.apache.poi.xssf.usermodel.*;
 //import org.apache.poi.ss.usermodel.*;
@@ -45,6 +57,7 @@ import org.apache.poi.xssf.usermodel.*;
 //import org.apache.poi.xssf.usermodel.XSSFSheet;
 //import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 //import org.apache.poi.;
+//import org.eclipse.jdt.internal.compiler.ast.ReturnStatement;
 
 
 //import javax.xml.parsers.DocumentBuilderFactory;
@@ -75,9 +88,9 @@ public class Backend
 	
 	public class ReturnClassString
 	{
-		boolean bValue;
-		String sRtnMsg;
-		String sReturnedString;
+		public boolean bValue;
+		public String sRtnMsg;
+		public String sReturnedString;
 	}
 
 	public class ReturnClassInt
@@ -168,14 +181,14 @@ public class Backend
 			String sReturn = "";
 			switch(iWebApp)
 			{
-			case 1:
-				sReturn = "C:\\WebRoot\\PIMS";
-				break;
-			case 2:
-				sReturn = "C:\\WebRoot\\Regain";
-				break;
-			case 5:
+				case 1:
 				default:
+					sReturn = "C:\\WebRoot\\PIMS";
+					break;
+				case 2:
+					sReturn = "C:\\WebRoot\\Regain";
+					break;
+				case 5:
 					sReturn = "C:\\WebRoot\\WindchillInterface";
 					break;
 			}
@@ -220,9 +233,15 @@ public class Backend
 					case "DEVWC":
 					case "DEVWCREGAIN":
 					case "DEVREGAIN":
+					default:
+						sSAUser = "pimsadmin";
+						sSAPass = "N33dt0kn0w";
+				        dbName = "wcadmin";
+				        serverip="VSRS12";
+				        dbURL = "jdbc:sqlserver://"+serverip+";integratedSecurity=false;databaseName="+dbName+"";
+				        break;				
 					case "PRODUCTION":
 					case "PRODUCTIONREGAIN":
-					default:
 						sSAUser = "pimsadmin";
 						sSAPass = "N33dt0kn0w";
 				        dbName = "wcadmin";
@@ -231,7 +250,7 @@ public class Backend
 				        break;				
 				}				
 			}
-			else if(iWebApp == 4) //THis is for views etc that are in the Regain DB but are reading from wcadmin or other DBs on the same server
+			else if(iWebApp == 4) //THis is for views etc that are in the Regain DB but are rading from wcadmin or other DBs on the same server
 			{
 				switch(sEnvironment.toUpperCase())
 				{
@@ -239,9 +258,15 @@ public class Backend
 					case "DEVREGAIN":
 					case "DEVWC":
 					case "DEVWCREGAIN":
+					default:
+						sSAUser = "pimsadmin";
+						sSAPass = "N33dt0kn0w";
+				        dbName = "Regain";
+				        serverip="VSRS12";
+				        dbURL = "jdbc:sqlserver://"+serverip+";integratedSecurity=false;databaseName="+dbName+"";
+				        break;				
 					case "PRODUCTION":
 					case "PRODUCTIONREGAIN":
-					default:
 						sSAUser = "pimsadmin";
 						sSAPass = "N33dt0kn0w";
 				        dbName = "Regain";
@@ -324,9 +349,11 @@ public class Backend
 		
 	    public ResultSet OpenRecordset(String sSQL) 
 	    { 
+	        Log log = new Log();
 		   try 
 		   { 
 			    Connection Conn = ConnectToDB();
+		        log.LogMsg("Got connection sSQL = " + sSQL);
 				Statement stat = Conn.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
 				Conn.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT);
 				ResultSet ds = stat.executeQuery(sSQL);
@@ -336,8 +363,9 @@ public class Backend
 			}
 			catch (SQLException ex) 
 			{
-		        ex.printStackTrace();
-	            return null;
+		        log.LogMsg("OpenRecordset error = " + ex.getMessage());
+//		        ex.printStackTrace();
+		        return null;
 		    } 
 		}
 		
@@ -440,7 +468,7 @@ public class Backend
 		        		}
 		        		else
 		        		{
-			        		switch(objParamValues[i].getClass().toString().replace("java.lang.", "").replace("class ","").trim())
+			        		switch(objParamValues[i].getClass().toString().replace("java.lang.", "").replace("java.sql.", "").replace("class ","").trim())
 			        		{
 				        		case "Integer":
 				        			cstmt.setInt(sParamNames[i].replace("@",""), (int)objParamValues[i]);
@@ -932,20 +960,22 @@ public class Backend
 			return bReturn;
 		}
 
-		public final String GetWindchillFileSearchResults(int iWebAppId, String sSearchString, String sPartDocNo, Boolean bHistoric, int iDocNumberOnly, String sUserId)
+		public final String GetWindchillFileSearchResults(int iWebAppId, String sSearchCriteriaDocNo, String sSearchCriteriaDocName, 
+				  										  String sSearchCriteriaFileName, String sSearchCriteriaFileDesc, String sSearchCriteriaOriginator, 
+				  										  Boolean bHistoric, int iDocNumberOnly, String sUserId)
 		{
 			Backend be = new Backend(iWebAppId);
 			Database DB = be.new Database();
-			String[] sParamNames = new String[4];
-			Object[] objParamValues = new Object[4];
+			String[] sParamNames = new String[8];
+			Object[] objParamValues = new Object[8];
 			String sReturn = "Success||";
 			String sReturnDetails = "";
 			int i;
 			int iCols;
-			String sThisSearchString;
+//			String sThisSearchString;
 			
 
-			if(!sPartDocNo.equals(""))
+/*			if(!sPartDocNo.equals(""))
 			{
 				sThisSearchString = sPartDocNo;				
 			}
@@ -953,14 +983,24 @@ public class Backend
 			{
 				sThisSearchString = sSearchString;
 			}
-			sParamNames[0] = "@pvchSearchCriteria";
-			sParamNames[1] = "@pbHistoric";
-			sParamNames[2] = "@piDocumentNumberOnly";
-			sParamNames[3] = "@pvchUser";
-			objParamValues[0] = sThisSearchString;
-			objParamValues[1] = bHistoric;
-			objParamValues[2] = iDocNumberOnly;
-			objParamValues[3] = sUserId;
+*/
+			sParamNames[0] = "@pvchSearchCriteriaDocNo";
+			sParamNames[1] = "@pvchSearchCriteriaDocName";
+			sParamNames[2] = "@pvchSearchCriteriaFileName";
+			sParamNames[3] = "@pvchSearchCriteriaFileDesc";
+			sParamNames[4] = "@pvchSearchCriteriaOriginator";
+			sParamNames[5] = "@pbHistoric";
+			sParamNames[6] = "@piDocumentNumberOnly";
+			sParamNames[7] = "@pvchUser";
+			
+			objParamValues[0] = sSearchCriteriaDocNo;
+			objParamValues[1] = sSearchCriteriaDocName;
+			objParamValues[2] = sSearchCriteriaFileName;
+			objParamValues[3] = sSearchCriteriaFileDesc;
+			objParamValues[4] = sSearchCriteriaOriginator;
+			objParamValues[5] = bHistoric;
+			objParamValues[6] = iDocNumberOnly;
+			objParamValues[7] = sUserId;
 			
 			int iRecordCount = DB.CallStoredProcResultSet("SP_GetWindchillFileSearchResults", sParamNames, objParamValues);
 
@@ -983,7 +1023,7 @@ public class Backend
 					}
 					else
 					{
-						iCols = 5;
+						iCols = 7;
 					}
 					for(i=0;i<iRecordCount;i++)
 					{
@@ -995,10 +1035,12 @@ public class Backend
 							String sFileName = rs.getString("FileName");
 							String sStatus = rs.getString("Status");
 							int iAttachmentId = rs.getInt("AttachmentId");
+							String sDescription = rs.getString("description");
+							String sOriginator = rs.getString("Originator");
 							
 							sReturnDetails += "DocNumber" + i + "=" + sDocNumber + "^" + "Name" + i + "=" + sName + "^" + 
 									   "Filename" + i + "=" + sFileName + "^" + "AttachmentId" + i + "=" + iAttachmentId + "^" + 
-									   "Status" + i + "=" + sStatus + "^||";
+									   "Status" + i + "=" + sStatus + "^" + "AttachDesc" + i + "=" + sDescription + "^" + "Originator" + i + "=" + sOriginator + "^||";
 						}
 						else
 						{
@@ -1069,7 +1111,7 @@ public class Backend
 					}
 					else
 					{
-						iCols = 5;
+						iCols = 7;
 						for(i=0;i<iRecordCount;i++)
 						{
 							String sDocNumber = rs.getString("DocNumber");
@@ -1077,10 +1119,12 @@ public class Backend
 							String sFileName = rs.getString("FileName");
 							String sStatus = rs.getString("Status");
 							int iAttachmentId = rs.getInt("AttachmentId");
-							
+							String sDesc = rs.getString("description");
+							String sOriginator = rs.getString("Originator");
+
 							sReturnDetails += "DocNumber" + i + "=" + sDocNumber + "^" + "Name" + i + "=" + sName + "^" + 
 									   "Filename" + i + "=" + sFileName + "^" + "AttachmentId" + i + "=" + iAttachmentId + "^" + 
-									   "Status" + i + "=" + sStatus + "^||";
+									   "Status" + i + "=" + sStatus + "^" + "AttachDesc" + i + "=" + sDesc + "^" + "Originator" + i + "=" + sOriginator + "^||";
 							rs.next();
 						}
 						
@@ -1136,12 +1180,18 @@ public class Backend
 					String sLongDesc = rs.getString("LongDescription");
 					String sModifiedBy = rs.getString("ModifiedBy");
 					String sOrigDocId = rs.getString("OrigDocId");
+					String sJobCode = rs.getString("JobCode");
+					String sDocType = rs.getString("DocType");
+					String sRevision = rs.getString("Revision");
+					int iDocCategory = rs.getInt("DocCategory");
 						
 						sReturnDetails += "DocNumber" + "=" + sDocNumber + "^" + "Name" + "=" + sName + "^" + 
 								   "LongDesc" + "=" + sLongDesc + "^" + "ModifiedBy" + "=" + sModifiedBy + "^" + 
-								   "OrigDocId" + "=" + sOrigDocId + "^" + "Status" + "=" + sStatus + "^||";
+								   "OrigDocId" + "=" + sOrigDocId + "^" + "JobCode" + "=" + sJobCode + "^"+ 
+								   "DocType" + "=" + sDocType + "^" + "Revision" + "=" + sRevision + "^" + 
+								   "Status" + "=" + sStatus +  "^" + "DocCategory" + "=" + iDocCategory + "^||";
 					
-					sReturn += "Rows=" + iRecordCount + "^Columns=6^||" + sReturnDetails;
+					sReturn += "Rows=" + iRecordCount + "^Columns=10^||" + sReturnDetails;
 					
 				} 
 				catch (SQLException e)
@@ -1450,6 +1500,12 @@ public class Backend
 			return sLocalArray;
 		}
 
+		public final String[] Extract_Values(String sValues)
+		{
+			String[] sLocalArray = sValues.split(Pattern.quote("^"));
+			return sLocalArray;
+		}
+
 		public final ReturnNextId Get_Next_Id(String sColumnName)
 		{
 			ResultSet rst = null;
@@ -1461,7 +1517,7 @@ public class Backend
 			int iRecords = -1;
 			ReturnNextId rtn = new ReturnNextId();
 
-			sSQL = "SELECT Counter, isnull(PrefixCode,'') as PrefixCode, isnull(SequenceLength,0) FROM tblNextId WHERE ColumnName = '" + sColumnName + "'";
+			sSQL = "SELECT Counter, isnull(PrefixCode,'') as PrefixCode, isnull(SequenceLength,0) as SequenceLength FROM tblNextId WHERE ColumnName = '" + sColumnName + "'";
 			rst = DB.OpenRecordset(sSQL);
 
 			try 
@@ -1529,6 +1585,83 @@ public class Backend
 			return rtn;
 
 		}
+
+		public ReturnClassString GetConstantValue(String sConstantName)
+		{
+			ResultSet rst = null;
+			String sSQL = null;
+			String sValue = "";
+			Database DB = new Database();
+			int iRecords = -1;
+			ReturnClassString rtn = new ReturnClassString();
+
+			sSQL = "SELECT isnull(Value,'') as Value FROM tblConstants WHERE Name = '" + sConstantName + "'";
+			rst = DB.OpenRecordset(sSQL);
+
+			try 
+			{
+				iRecords = DB.getRowCount(rst);
+			} 
+			catch (Exception e) 
+			{
+				e.printStackTrace();
+			}
+
+			if (iRecords > 0)
+			{
+				try
+				{
+					sValue = rst.getString("Value");
+					rtn.sReturnedString = sValue;
+					rtn.sRtnMsg = "";
+					rtn.bValue = true;
+				}
+				catch(Exception e) 
+				{
+					sValue = e.getMessage();
+					rtn.bValue = false;
+					rtn.sRtnMsg = sValue;
+					rtn.sReturnedString = "";
+					
+				}
+			}
+			else
+			{
+				rtn.bValue = false;
+				rtn.sRtnMsg = "The constant name " + sConstantName + " does not exist in tblConstants";
+				rtn.sReturnedString = "";
+			}
+
+
+			try 
+			{
+				rst.close();
+			} 
+			catch (SQLException e) 
+			{
+				e.printStackTrace();
+			}
+			
+			return rtn;
+
+		}
+
+		public String generateRandomPassword()
+		{
+		      // Pick from some letters that won't be easily mistaken for each
+		      // other. So, for example, omit o O and 0, 1 l and L.
+		      String letters = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789+@";
+		      Random RANDOM = new SecureRandom();
+		      
+		      String pw = "";
+		      for (int i=0; i<8; i++)
+		      {
+		          int index = (int)(RANDOM.nextDouble()*letters.length());
+		          pw += letters.substring(index, index+1);
+		      }
+		      return pw;
+		}
+		
 		public byte[] hexToBytes(String hexString) {
 		     HexBinaryAdapter adapter = new HexBinaryAdapter();
 		     byte[] bytes = adapter.unmarshal(hexString);
@@ -1591,27 +1724,32 @@ public class Backend
 		public class UserDetails
 		{
 			public String sUsername;
+			public String sFullname;
 			public String sPassword;
 			public String sEmail;
 			public String sErrorMsg;
+			
 		}
 		
-		public ReturnClassInt AddUser(String sUsername, String sPassword, String sEmail, int iWebAppId)
+		public ReturnClassInt AddUser(String sUsername, String sFullname, String sPassword, String sEmail, int iWebAppId)
 		{
 			iWebApp = iWebAppId;
 			Database DB = new Database();
-			String[] sParamNames = new String[3];
-			Object[] objParamValues = new Object[3];
+			String[] sParamNames = new String[4];
+			Object[] objParamValues = new Object[4];
 			String sHashedPW = BCrypt.hashpw(sPassword, BCrypt.gensalt());
 			ReturnClassInt rtnClass = new ReturnClassInt();
 			
 			sParamNames[0] = "@pvchUser";
 			sParamNames[1] = "@pvchPassword";
 			sParamNames[2] = "@pvchEmail";
+			sParamNames[3] = "@pvchFullname";
 			
 			objParamValues[0] = sUsername;
 			objParamValues[1] = sHashedPW;
 			objParamValues[2] = sEmail;
+			objParamValues[3] = sFullname;
+			
 			
 			int iRecords = DB.CallStoredProcReturnValue("SP_SetUser", sParamNames, objParamValues);
 			
@@ -1625,6 +1763,13 @@ public class Backend
 			rtnClass.bValue = false;
 			rtnClass.iValue = iRecords;
 			return rtnClass;
+			
+		}
+		
+		public String GetUserFullName(String sUsername, int iWebAppId)
+		{
+			UserDetails rtnUD = GetUser(sUsername, iWebAppId);
+			return rtnUD.sFullname;
 			
 		}
 		
@@ -1657,6 +1802,7 @@ public class Backend
 					ResultSet rs = DB.getResultSet();
 					log.LogMsg("Got to D");
 					rtnUD.sUsername = rs.getString("Username");
+					rtnUD.sFullname = rs.getString("Fullname");
 					log.LogMsg("Got to E");
 					rtnUD.sPassword = rs.getString("Password");
 					rtnUD.sEmail = rs.getString("Email");
@@ -1781,7 +1927,7 @@ public class Backend
 				if(iReturn < 0)
 				{
 					rtn.iValue = iReturn;
-					rtn.sRtnMsg = "Cannot save role  " + sRoleDescription; 
+					rtn.sRtnMsg = "Cannot save role " + sRoleDescription; 
 					rtn.bValue = false;
 					return rtn;		
 				}
@@ -1823,6 +1969,35 @@ public class Backend
 			return rtn;		
 		 }
 
+		public ReturnClassInt DeleteUser(String sUser, int iWebAppId)
+		{		 
+			Backend be = new Backend(iWebAppId);
+			Database DB = be.new Database();
+			String[] sParamNames = new String[1];
+			Object[] objParamValues = new Object[1];
+			ReturnClassInt rtn = new ReturnClassInt();
+
+			
+			sParamNames[0] = "@pvchUserId"; 
+			objParamValues[0] = sUser; 
+
+			int iReturn = DB.CallStoredProc("SP_DeleteUser", sParamNames, objParamValues);
+			
+			if(iReturn < 0)
+			{
+				rtn.iValue = iReturn;
+				rtn.sRtnMsg = "Cannot delete user " + sUser; 
+				rtn.bValue = false;
+				return rtn;		
+			}
+
+			//If we get to here the delete has been successful
+			rtn.iValue = 0;
+			rtn.sRtnMsg = ""; 
+			rtn.bValue = true;
+			return rtn;		
+		}
+
 		public ReturnClassInt DeleteUserRoles(String sUsername, int iWebAppId)
 		{		 
 			Backend be = new Backend(iWebAppId);
@@ -1841,6 +2016,35 @@ public class Backend
 			{
 				rtn.iValue = iReturn;
 				rtn.sRtnMsg = "Cannot delete user roles for user " + sUsername; 
+				rtn.bValue = false;
+				return rtn;		
+			}
+
+			//If we get to here the delete has been successful
+			rtn.iValue = 0;
+			rtn.sRtnMsg = ""; 
+			rtn.bValue = true;
+			return rtn;		
+		}
+
+		public ReturnClassInt DeleteRoleUsers(int iRoleId, String sRoleDesc, int iWebAppId)
+		{		 
+			Backend be = new Backend(iWebAppId);
+			Database DB = be.new Database();
+			String[] sParamNames = new String[1];
+			Object[] objParamValues = new Object[1];
+			ReturnClassInt rtn = new ReturnClassInt();
+
+			
+			sParamNames[0] = "@piRoleId"; 
+			objParamValues[0] = iRoleId; 
+
+			int iReturn = DB.CallStoredProc("SP_DeleteRoleUsers", sParamNames, objParamValues);
+			
+			if(iReturn < 0)
+			{
+				rtn.iValue = iReturn;
+				rtn.sRtnMsg = "Cannot delete users for role " + sRoleDesc; 
 				rtn.bValue = false;
 				return rtn;		
 			}
@@ -1914,6 +2118,50 @@ public class Backend
 						String sRoleDesc = rs.getString("RoleDescription");
 						
 						sReturn += "RoleId" + i + "=" + iRoleId +"^RoleDescription" + i + "=" + sRoleDesc +"^";
+						rs.next();
+					}
+										
+				} 
+				catch (SQLException e)
+				{
+					sReturn = "Failure^" + e.getMessage() + "^";
+					return sReturn;
+				}
+			}
+							
+			return sReturn;
+		}
+		
+		public String GetRoleUsers(int iRoleId, boolean bFull, int iWebAppId)
+		{
+			Backend be = new Backend(iWebAppId);
+			Database DB = be.new Database();
+			String[] sParamNames = new String[1];
+			Object[] objParamValues = new Object[1];
+			String sReturn = "Success^";
+			int i;
+					
+			sParamNames[0] = "@piRoleId"; 
+
+			objParamValues[0] = iRoleId; 
+
+			int iRecordCount = DB.CallStoredProcResultSet("SP_GetRoleUsers", sParamNames, objParamValues);
+
+			if (iRecordCount < 0)
+			{
+				return null;
+			}
+			else
+			{
+				try
+				{
+					ResultSet rs = DB.getResultSet();
+					for(i=0;i<iRecordCount;i++)
+					{
+						int iUserId = rs.getInt("UserId");
+						String sUsername = rs.getString("Username");
+						
+						sReturn += "UserId" + i + "=" + iUserId +"^Username" + i + "=" + sUsername +"^";
 						rs.next();
 					}
 										
@@ -2209,59 +2457,68 @@ public class Backend
 		         message.setFrom(new InternetAddress(from));
 	
 		         // Set To: header field of the header.
-		         for(int i = 0; i < sRecipientList.length; i++)
+		         if(sRecipients.length() > 0)
 		         {
-		        	 if(sRecipientList[i].compareTo("") != 0)
-		        		 message.addRecipient(Message.RecipientType.TO, new InternetAddress(sRecipientList[i]));
-		         }
-
-		         for(int i = 0; i < sCCRecipientList.length; i++)
-		         {
-		        	 if(sCCRecipientList[i].compareTo("") != 0)
-		        		 message.addRecipient(Message.RecipientType.CC, new InternetAddress(sCCRecipientList[i]));
-		         }
-	
-		         for(int i = 0; i < sBCCRecipientList.length; i++)
-		         {
-		        	 if(sBCCRecipientList[i].compareTo("") != 0)
-		        		 message.addRecipient(Message.RecipientType.BCC, new InternetAddress(sBCCRecipientList[i]));
-		         }
-
-		         // Set Subject: header field
-		         message.setSubject(sSubject);
-	
-		      // Create the message part 
-		         BodyPart messageBodyPart = new MimeBodyPart();
-	
-		         // Fill the message
-		         messageBodyPart.setText(sBody);
-		         
-		         // Create a multipart message
-		         Multipart multipart = new MimeMultipart();
-	
-		         // Set text message part
-		         multipart.addBodyPart(messageBodyPart);
-	
-		         // Part two is attachment
-		         if(sAttachments != null)
-		         {
-			         for(int j = 0; j< sAttachments.length; j++)
+			         for(int i = 0; i < sRecipientList.length; i++)
 			         {
-				         messageBodyPart = new MimeBodyPart();
-				         String filename = sAttachments[j];
-				         String sFileNameOnly = utils.Get_FilenameOnly_From_FullPath(filename);
-				         DataSource source = new FileDataSource(filename);
-				         messageBodyPart.setDataHandler(new DataHandler(source));
-				         messageBodyPart.setFileName(sFileNameOnly);
-				         multipart.addBodyPart(messageBodyPart);
+			        	 if(sRecipientList[i].compareTo("") != 0)
+			        		 message.addRecipient(Message.RecipientType.TO, new InternetAddress(sRecipientList[i]));
 			         }
-		         }
-		         
-		         // Send the actual HTML message, as big as you like
-		         message.setContent(multipart, "text/html");
 	
-		         // Send message
-		         Transport.send(message);
+			         if(sCCRecipients.length() > 0)
+			         {
+				         for(int i = 0; i < sCCRecipientList.length; i++)
+				         {
+				        	 if(sCCRecipientList[i].compareTo("") != 0)
+				        		 message.addRecipient(Message.RecipientType.CC, new InternetAddress(sCCRecipientList[i]));
+				         }
+			         }
+			         
+			         if(sBCCRecipients.length() > 0)
+			         {
+				         for(int i = 0; i < sBCCRecipientList.length; i++)
+				         {
+				        	 if(sBCCRecipientList[i].compareTo("") != 0)
+				        		 message.addRecipient(Message.RecipientType.BCC, new InternetAddress(sBCCRecipientList[i]));
+				         }
+			         }
+	
+			         // Set Subject: header field
+			         message.setSubject(sSubject);
+		
+			      // Create the message part 
+			         BodyPart messageBodyPart = new MimeBodyPart();
+		
+			         // Fill the message
+			         messageBodyPart.setText(sBody);
+			         
+			         // Create a multipart message
+			         Multipart multipart = new MimeMultipart();
+		
+			         // Set text message part
+			         multipart.addBodyPart(messageBodyPart);
+		
+			         // Part two is attachment
+			         if(sAttachments != null)
+			         {
+				         for(int j = 0; j< sAttachments.length; j++)
+				         {
+					         messageBodyPart = new MimeBodyPart();
+					         String filename = sAttachments[j];
+					         String sFileNameOnly = utils.Get_FilenameOnly_From_FullPath(filename);
+					         DataSource source = new FileDataSource(filename);
+					         messageBodyPart.setDataHandler(new DataHandler(source));
+					         messageBodyPart.setFileName(sFileNameOnly);
+					         multipart.addBodyPart(messageBodyPart);
+				         }
+			         }
+			         
+			         // Send the actual HTML message, as big as you like
+			         message.setContent(multipart);
+		
+			         // Send message
+			         Transport.send(message);
+		         }
 		         rtn.bValue = true;
 		         return rtn;
 		      }
@@ -2290,7 +2547,44 @@ public class Backend
 		    String strDate = sdfDate.format(date);
 		    return strDate;		
 		}
-	}
+
+		public String FormatTimestamp(java.sql.Timestamp date, String sFormat)
+		{
+			SimpleDateFormat sdfDate = new SimpleDateFormat(sFormat);
+		    String strDate = sdfDate.format(date);
+		    return strDate;		
+		}
+		
+		public Timestamp ConvertFromGMTToAEST(Timestamp dtInputDateTime)
+		{
+			Calendar cal = Calendar.getInstance();
+	        TimeZone tz2 = cal.getTimeZone();
+	        Calendar cal2 = Calendar.getInstance(tz2);
+	        int iOffset = tz2.getOffset(cal2.getTime().getTime());
+	        java.util.Date startDate2 = DateUtils.addMilliseconds(dtInputDateTime, iOffset * 1);
+	        java.sql.Timestamp sq = new java.sql.Timestamp(startDate2.getTime());
+	        return sq;
+		}
+ 		public java.sql.Timestamp GetDateFromString(String sDate, String sFormat)
+		{
+			SimpleDateFormat sdfDate = new SimpleDateFormat(sFormat);
+			java.sql.Timestamp datetime =  null;
+			java.util.Date date =  null;
+			try
+			{
+				date = sdfDate.parse(sDate);
+				datetime = new java.sql.Timestamp(date.getTime());
+/*				String sNewDate = datetime.toString();
+				System.out.println(sNewDate);
+*/			} 
+			catch (ParseException e)
+			{
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		    return datetime;		
+		}
+}
 	
 	public class Log
 	{

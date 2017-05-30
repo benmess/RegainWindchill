@@ -1,7 +1,6 @@
 package ext.regain.document;
 
 import javax.jws.WebMethod;
-import javax.jws.WebParam;
 import javax.jws.WebService;
 
 import com.ptc.jws.servlet.JaxWsWebService;
